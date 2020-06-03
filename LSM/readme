@@ -1,1 +1,150 @@
+一、LSM是Linux Security Module的简写，作为一个单独模块，通过在kernel编译过程中的编译flag：CONFIG_SECURITY 控制是否启用该模块中定义的安全相关的功能。
+二、step1：linux-4.4.131/init/main.c
+     在kernel初始化过程中调用security_init（）；
+     asmlinkage __visible void __init start_kernel(void))
+     {
+             char *command_line;
+             char *after_dashes;
+       ...
+             cred_init();
+       ...
+             security_init();
+       ...
+     }
+     step2:linux-4.4.131/security/security.c
+       在security_init()函数中加载各个安全模块
+       int __init security_init(void)
+       {
+	        pr_info("Security Framework initialized\n");
 
+	        /*
+	          * Load minor LSMs, with the capability module always first.
+	        */
+	        capability_add_hooks();
+	        yama_add_hooks();
+
+	        /*
+	        * Load all the remaining security modules.
+	         */
+	        do_security_initcalls();
+
+	        return 0;
+        }
+        其中capability_add_hooks()、yama_add_hooks()分别对应的是三种安全检查的初始化； 
+        LSM安全结构主要的实现方式，即是hook 内核中的某些函数调用，然后在hook后的函数实现中添加安全相关的逻辑。
+        以上述的第一个capability安全模块为例，了解一下LSM（linux security module）的基础框架。其中涉及到的几个重要的对象包括以下几个：
+             1）capability_hooks：即将要被hook的函数列表；
+             2）列表中的各个hook函数的实现；
+             3）因为某个函数可能被多个安全模块hook，所以对hook函数实现构建一个stack结构。
+         《1》security/commoncap.c中
+             void __init capability_add_hooks(void)
+             {
+	              security_add_hooks(capability_hooks, ARRAY_SIZE(capability_hooks));//添加钩子模块到钩子列表中，第一个参数为要添加的钩子模块；第二个参数为钩子模块中钩子函数的个数。
+             }
+             其中，#ifdef CONFIG_SECURITY
+               1070   struct security_hook_list capability_hooks[] = {//钩子模块
+	             1071               LSM_HOOK_INIT(capable, cap_capable),
+	             1072               LSM_HOOK_INIT(settime, cap_settime),
+	             1073               LSM_HOOK_INIT(ptrace_access_check, cap_ptrace_access_check),
+	             1074               LSM_HOOK_INIT(ptrace_traceme, cap_ptrace_traceme),
+	             1075               LSM_HOOK_INIT(capget, cap_capget),
+                              。。。。。
+                  }
+          《2》hook函数的实现，以cap_capable函数为例
+              初始化钩子模块capability_hooks，如1071行所示，用上述的hook函数（钩子函数）cap_capable，替换原有函数capable；
+              添加hook函数是通过调用"LSM_HOOK_INIT(capable, cap_capable)"来实现，其中LSM_HOOK_INIT是个宏，定义在linux-4.4.131/include/linux/lsm_hooks.h文件中：
+                      #define LSM_HOOK_INIT(HEAD, HOOK) \
+            	                 { .head = &security_hook_heads.HEAD, .hook = { .HEAD = HOOK } }
+
+                      extern struct security_hook_heads security_hook_heads;
+                  即对1071行展开后即是：
+                     {.head = &security_hook_heads.capable, .hook={.capable = cap_capable} }
+                     相当于在capability_hooks数组中，对其中一个struct security_hook_list类型对象做了初始化。初始化过程涉及到三个主要类型的定义，分别是：
+                  struct security_hook_list、struct security_hook_heads和union security_list_options。
+          linux-4.4.131/include/linux/lsm_hooks.h文件中  struct security_hook_list {
+	                                                                   struct list_head		list;
+	                                                                   struct list_head		*head;
+	                                                                   union security_list_options	hook;
+                                                         };
+                                  
+                                                       union security_list_options {
+                                                                                ...
+                                                       1386         int (*capable)(const struct cred *cred, struct user_namespace *ns,
+                                                       1387                         int cap, int audit);
+                                                       1388         int (*quotactl)(int cmds, int type, int id, struct super_block *sb);
+                                                       1389         int (*quota_on)(struct dentry *dentry);
+                                                       1390         int (*syslog)(int type);
+                                                       1391         int (*settime)(const struct timespec64 *ts, const struct timezone *tz);
+                                                                                 ...
+                                                       1701 };
+                                                       
+                                                       struct security_hook_heads {                                                                                                                                                                              
+                                                                            ...
+                                                                1712         struct list_head capable;
+                                                                1713         struct list_head quotactl;
+                                                                1714         struct list_head quota_on;
+                                                                1715         struct list_head syslog;
+                                                                1716         struct list_head settime;
+                                                                             ...
+                                                                1925 };
+                     struct security_hook_list包含了两个list和一个名称为hook的函数指针（类型为union security_list_options）；union security_list_options是一系列函数指针的union,其中包含了类型为‘capable’类型的函数指针。
+        《3》 回到security/commoncap.c:1071行，这一行完成的功能就是在capability_hooks数组中添加了这样一个struct security_hook_list对象（如下），head指向了一个全局变量security_hook_heads中的capable成员变量，hook成员变量指向了最终需要hook后的函数实现。
+                              {
+                                  .head = &security_hook_heads.capable,
+                                  .hook=
+                                          {
+                                            .capable = cap_capable
+                                          }
+                              }
+              全局变量security_hook_heads中的capable成员变量被初始化了什么呢？
+                    该全局变量是在security/security.c中被初始化，如下所示：
+
+              security/security.c
+                         1640 struct security_hook_heads security_hook_heads __lsm_ro_after_init = { 
+                                                                    ...
+                         1656         .capable =      LIST_HEAD_INIT(security_hook_heads.capable),
+                         1657         .quotactl =     LIST_HEAD_INIT(security_hook_heads.quotactl),
+                         1658         .quota_on =     LIST_HEAD_INIT(security_hook_heads.quota_on),
+                         1659         .syslog =       LIST_HEAD_INIT(security_hook_heads.syslog),
+                         1660         .settime =      LIST_HEAD_INIT(security_hook_heads.settime),
+                                                                    ...
+                         2009 };
+                       对"LIST_HEAD_INIT(security_hook_heads.capable)"宏展开，得到的结果是:
+                                   .capable = {&security_hook_heads.capable = &security_hook_heads.capable}
+                       看起来好像没什么意义，只是把自己初始化为自己！
+     step3:回到《1》security_add_hooks(capability_hooks, ARRAY_SIZE(capability_hooks));此函数在linux-4.4.131/include/linux/lsm_hooks.h中定义，
+                    1948 static inline void security_add_hooks(struct security_hook_list *hooks,                                                                                                                                   
+                    1949                                       int count)
+                    1950 {
+                    1951         int i;
+                    1952         
+                    1953         for (i = 0; i < count; i++)
+                    1954                 list_add_tail_rcu(&hooks[i].list, hooks[i].head);
+                    1955 }
+                        如上代码所示，对capability_hooks中的所有成员变量（类型为struct security_hook_list），将其中的成员变量list添加到成员变量head之前，组成一个链表（如果后续有其他安全模块对capable函数增加其他的hook函数实现，
+                    新的hook实现又会被放到当前hook函数之前，类似于一个栈结构）。
+     step4: 但是，截止到目前为止，还是没有看到capability模块中是如何实现对原'capable'函数实现hook函数的替换的。入口在哪里呢？
+                          通过阅读security.c中的代码，发现代码入口在函数security_capable中实现，代码如下所示：
+                          119 #define call_int_hook(FUNC, IRC, ...) ({                        \                                                                                                                                         
+                          120         int RC = IRC;                                           \
+                          121         do {                                                    \
+                          122                 struct security_hook_list *P;                   \
+                          123                                                                 \
+                          124                 list_for_each_entry(P, &security_hook_heads.FUNC, list) { \
+                          125                         RC = P->hook.FUNC(__VA_ARGS__);         \
+                          126                         if (RC != 0)                            \
+                          127                                 break;                          \
+                          128                 }                                               \
+                          129         } while (0);                                            \
+                          130         RC;                                                     \
+                          131 })
+                                             ...
+                          186 int security_capable(const struct cred *cred, struct user_namespace *ns,                                                                                                                                  
+                          187                      int cap)
+                          188 {
+                          189         return call_int_hook(capable, 0, cred, ns, cap, SECURITY_CAP_AUDIT);
+                          190 }
+                  从security_hook_heads.FUNC 头中指向的链表依次取出capable的钩子函数执行（不同的安全模块理论上来说是可以共存的，即不同的安全模块的函数钩子可以挂在同一个security_hook_heads.head(比如capable函数), 这样不同的安全模块将被依次调用。）
+                  在内核其他模块需要安全检查的地方根据需要，调用这些security_capable进而调用它封装的钩子函数进行检查。
+                                 
+     
