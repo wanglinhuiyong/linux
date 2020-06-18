@@ -67,6 +67,7 @@
           
           
    2、在Linux内核2.6之后，不能直接导出sys_call_table的地址后，我们要如何获得系统调用表的地址，从而实现系统调用的截获呢？
+   
            命令：cat /proc/kallsyms | grep sys_call_table
            或cat /boot/System.mapXXXX | grep sys_call_table
               某个具体的系统调用的地址：cat /proc/kallsyms | grep sys_close
