@@ -4,5 +4,5 @@
 2、  x86-32架构下分析dup()为例
 
 
-               ![image](https://github.com/wanglinhuiyong/linux/blob/master/hook-syscall/image.png)
+                 ![image](https://github.com/wanglinhuiyong/linux/blob/master/hook-syscall/image.png)
 
