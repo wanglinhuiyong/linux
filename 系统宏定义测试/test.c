@@ -1,3 +1,7 @@
+/*
+查看linux系统内置宏定义的命令：
+gcc -dM -E - < /dev/null
+*/
 void test()
 {
 	int len=sizeof(int)*8;
