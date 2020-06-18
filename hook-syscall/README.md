@@ -3,5 +3,6 @@
      并执行相应的服务例程（内核函数）；比如系统调用dup()的服务例程是内核函数sys_dup()。
 2、  x86-32架构下分析dup()为例
 
-![image](https://github.com/wanglinhuiyong/linux/blob/master/hook-syscall/image.png)
+
+               ![image](https://github.com/wanglinhuiyong/linux/blob/master/hook-syscall/image.png)
 
