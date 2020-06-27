@@ -71,6 +71,9 @@
            命令：cat /proc/kallsyms | grep sys_call_table
            或cat /boot/System.mapXXXX | grep sys_call_table
               某个具体的系统调用的地址：cat /proc/kallsyms | grep sys_close
+	      
+	      
+   3、即使获取到了sys_call_table也无法修改其中的值，因为sys_call_table是一个const类型，是写保护的，在修改时会报错。
 
 
 
