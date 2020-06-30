@@ -74,6 +74,8 @@
 	      
 	      
    3、即使获取到了sys_call_table也无法修改其中的值，因为sys_call_table是一个const类型，是写保护的，在修改时会报错。
+      (1)struct page *virt_to_page(void *kaddr);//获取虚拟内存地址所对应的物理页指针,所有物理内存都
+由一个 mem_map 数组来描述(linux将物理内存按固定大小的页面划分内存)
 
 
 
