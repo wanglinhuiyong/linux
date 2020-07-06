@@ -77,15 +77,15 @@
       
       如何找到这些物理页帧？
       
-        (1)对于直接映射区的虚拟地址，因为虚拟地址和物理地址只差一个常数，可以通过virt_to_page直接获取到。
+        （1）对于直接映射区的虚拟地址，因为虚拟地址和物理地址只差一个常数，可以通过virt_to_page直接获取到。
 	
 		![image](https://github.com/wanglinhuiyong/linux/blob/master/hook-syscall/virt_to_page.PNG）
 	 
-	(2)处于vmalloc区的虚拟地址，需要查询页表才能定位到物理页，可以通过vmalloc_to_page获取
+	（2）处于vmalloc区的虚拟地址，需要查询页表才能定位到物理页，可以通过vmalloc_to_page获取
 	
 		![image](https://github.com/wanglinhuiyong/linux/blob/master/hook-syscall/vmalloc_to_page.PNG）
 
-       （3）  获取到struct page数据结构后，调用vmap映射该页到vmalloc虚拟内存区，vmap函数原型：
+        （3）获取到struct page数据结构后，调用vmap映射该页到vmalloc虚拟内存区，vmap函数原型：
 		void *vmap(struct page **pages, unsigned int count,
 				unsigned long flags, pgprot_t prot)
 
