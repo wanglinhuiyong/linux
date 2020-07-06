@@ -66,16 +66,31 @@
           。。。。。。。。。。
           
           
-   2、在Linux内核2.6之后，不能直接导出sys_call_table的地址后，我们要如何获得系统调用表的地址，从而实现系统调用的截获呢？
+   2、在Linux内核2.6之后，没有直接导出sys_call_table的地址后，我们要如何获得系统调用表的地址，从而实现系统调用的截获呢？
    
            命令：cat /proc/kallsyms | grep sys_call_table
            或cat /boot/System.mapXXXX | grep sys_call_table
               某个具体的系统调用的地址：cat /proc/kallsyms | grep sys_close
 	      
 	      
-   3、即使获取到了sys_call_table也无法修改其中的值，因为sys_call_table是一个const类型，是写保护的，在修改时会报错。
-      (1)struct page *virt_to_page(void *kaddr);//获取虚拟内存地址所对应的物理页指针,所有物理内存都
-由一个 mem_map 数组来描述(linux将物理内存按固定大小的页面划分内存)
+   3、即使获取到了sys_call_table也无法修改其中的值，因为sys_call_table是一个const类型，是写保护的，在修改时会报错。当需要修改系统调用表或者内核代码段某处内存，这些内存在内核中都是写保护的。
+      解决方法：找到这些虚拟内存所对应物理页帧，并通过vmap将这些物理页帧映射到一个vmalloc区的虚拟地址中。
+      如何找到这些物理页帧？
+        (1)对于直接映射区的虚拟地址，因为虚拟地址和物理地址只差一个常数，可以通过virt_to_page直接获取到。
+	 
+	(2)处于vmalloc区的虚拟地址，需要查询页表才能定位到物理页，可以通过vmalloc_to_page获取
+
+	   获取到struct page数据结构后，调用vmap映射该页到vmalloc虚拟内存区，vmap函数原型：
+		void *vmap(struct page **pages, unsigned int count,
+				unsigned long flags, pgprot_t prot)
+
+
+
+   
+     （1）struct page *vmalloc_to_page(const void *addr);
+   
+      (2)struct page *virt_to_page(void *kaddr);//获取虚拟内存地址所对应的物理页指针,所有物理内存都由一个 mem_map 数组来描述(linux将物理内存按固定大小的页面划分内存)
+      
 
 
 
