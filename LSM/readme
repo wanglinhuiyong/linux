@@ -39,10 +39,11 @@
          《1》security/commoncap.c中
              void __init capability_add_hooks(void)
              {
-	              security_add_hooks(capability_hooks, ARRAY_SIZE(capability_hooks));//添加钩子模块到钩子列表中，第一个参数为要添加的钩子模块；第二个参数为钩子模块中钩子函数的个数。
+	     	//添加钩子模块到钩子链表中，第一个参数为要添加的钩子模块；第二个参数为钩子模块中钩子函数的个数。
+	        security_add_hooks(capability_hooks, ARRAY_SIZE(capability_hooks));
              }
-             其中，#ifdef CONFIG_SECURITY
-               1070   struct security_hook_list capability_hooks[] = {//钩子模块
+             其中，          #ifdef CONFIG_SECURITY
+                     1070   struct security_hook_list capability_hooks[] = {//钩子模块
 	             1071               LSM_HOOK_INIT(capable, cap_capable),
 	             1072               LSM_HOOK_INIT(settime, cap_settime),
 	             1073               LSM_HOOK_INIT(ptrace_access_check, cap_ptrace_access_check),
